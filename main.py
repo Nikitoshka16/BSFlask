@@ -85,7 +85,7 @@
 import os
 import sqlite3
 
-from flask import Flask, request, render_template, g, flash, abort, redirect, url_for, make_response
+from flask import Flask, request, render_template, g, flash, abort, redirect, url_for
 from FDataBase import FDataBase
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, login_user, login_required, current_user, logout_user
@@ -95,7 +95,6 @@ from UserLogin import UserLogin
 DATABASE = 'tmp/flsite.db'
 DEBUG = True
 SECRET_KEY = 'adsfkaofkoadfkopadk'
-MAX_CONTENT_LENGTH = 1024*1024
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -129,11 +128,6 @@ def before_request():
     db = get_db()
     dbase = FDataBase(db)
 
-@app.teardown_appcontext
-def close_db(error):
-    if hasattr(g, 'link_db'):
-        g.link_db.close()
-
 @login_manager.user_loader
 def load_user(user_id):
     print("load_user")
@@ -142,38 +136,8 @@ def load_user(user_id):
 @app.route('/profile')
 @login_required
 def profile():
-    return render_template('profile.html', menu = dbase.getMenu(), title = 'Профиль')
-
-@app.route('/userava')
-@login_required
-def userava():
-    img = current_user.getAvatar(app)
-    if not img:
-        return ''
-
-    h = make_response(img)
-    h.headers['Content-Type'] = 'img/png'
-    return h
-
-@app.route('/upload', methods = ['POST', 'GET'])
-@login_required
-def upload():
-    if request.method == 'POST':
-        file = request.files['file']
-        if file and current_user.verifyExt(file.filename):
-            try:
-                img = file.read()
-                res = dbase.updateUserAvatar(img, current_user.get_id())
-                if not res:
-                    flash('Ошибка обновления аватара')
-                    return redirect(url_for('profile'))
-                flash('Аватар обновлен')
-            except FileNotFoundError as e:
-                flash('Ошибка чтения')
-        else:
-            flash('Ошибка обновления аватара')
-
-    return redirect(url_for('profile'))
+    return f"""<p><a href = "{url_for('logout')}">Выйти</a></p> 
+                <p>user info: {current_user.get_id()}"""
 
 @app.route('/logout')
 @login_required
@@ -222,6 +186,11 @@ def register():
 
     return render_template('register.html', menu = dbase.getMenu(), title = 'Регистрация')
 
+@app.teardown_appcontext
+def close_db(error):
+    if hasattr(g, 'link_db'):
+        g.link_db.close()
+
 @app.route("/add_post", methods = ['POST','GET'])
 def add_post():
     if request.method == 'POST':
@@ -245,7 +214,6 @@ def showPost(alias):
         abort(404)
 
     return render_template('post.html', menu = dbase.getMenu(), title = title, post = post)
-
 
 
 if __name__ == '__main__':
