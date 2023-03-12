@@ -1,0 +1,15 @@
+{%extends 'base.html'%}
+
+{%block content%}
+{{super()}}
+{%for m in get_flashed_messages(True)%}
+<div>{{m}}</div>
+{%endfor%}
+<form action="/register" method="post">
+  <p><label>Имя</label><input type="text" name="name" value="" required/></p>
+  <p><label>Email</label><input type="text" name="email" value="" required/></p>
+  <p><label>Пароль</label><input type="password" name="psw" value="" required/></p>
+  <p><label>Повторите пароль</label><input type="password" name="psw2" value="" required/></p>
+  <p><input type="submit" value="Регистрация"/></p>
+</form>
+{%endblock%}
