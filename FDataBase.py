@@ -1,87 +1,98 @@
+from datetime import datetime
 import math
-import sqlite3
 import time
-import re
-from flask import url_for
 
+import psycopg2
 
 class FDataBase:
     def __init__(self, db):
         self.__db = db
-        self.__cur = db.cursor()
+        self.__cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    def getMenu(self):
-        sql = '''SELECT * FROM MainMenu'''
+    def blockUser(self, email):
         try:
-            self.__cur.execute(sql)
-            res = self.__cur.fetchall()
-            if res: return res
+            self.__cur.execute(f"UPDATE users SET blocked = true WHERE email = '{email}' ")
         except:
-            print('Ошибка чтения из БД')
-        return []
-
-    def addPost(self, title, text, url):
-        try:
-            self.__cur.execute(f"SELECT COUNT() as 'count' from posts where url like '{url}'")
-            res = self.__cur.fetchone()
-            if res['count'] > 0:
-                print('ЗАНЯТО(поменяйте url)')
-                return False
-
-            base = url_for('static', filename = 'images_html')
-
-            text = re.sub(r"(?P<tag><img\s+[^>]*src=)(?P<quote>[\"'])(?P<url>.+?)(?P=quote)>",
-                          "\\g<tag>" + base + "/\\g<url>>", text)
-
-            tm = math.floor(time.time())
-            self.__cur.execute("INSERT INTO Posts values(null, ?, ?, ?, ?)", (title, text, url, tm))
-            self.__db.commit()
-        except sqlite3.Error as e:
-            print('Ошибка заполнения бд '+ str(e))
+            print('Ошибка блокировки')
             return False
-
         return True
 
-    def getPost(self, alias):
+    def unblockUser(self, email):
         try:
-            self.__cur.execute(f"SELECT title, text FROM Posts where url like '{alias}' limit 1")
-            res = self.__cur.fetchone()
-            if res:
-                return res
-        except sqlite3.Error as e:
-            print('Ошибка заполнения бд ' + str(e))
+            self.__cur.execute(f"UPDATE users SET blocked = false WHERE email = '{email}' ")
+        except:
+            print('Ошибка разблокировки')
             return False
+        return True
 
-        return (False,False)
-
-    def getPostsAnonce(self):
+    def transitionClient(self, url):
         try:
-            self.__cur.execute('select*from posts order by time desc')
+            self.__cur.execute(f"UPDATE stats SET transitionj = transitionj + 1 WHERE urlj = '{url}' ")
+        except psycopg2.Error as e:
+            print(e)
+            return False
+        return True
+
+    def rejectionClient(self, url):
+        try:
+            self.__cur.execute(f"UPDATE stats SET rejectionj = rejectionj + 1 WHERE urlj = '{url}'")
+        except psycopg2.Error as e:
+            print(e)
+            return False
+        return True
+
+    def rejectionEmail(self, id):
+        try:
+            self.__cur.execute(f"UPDATE statements SET agreeemail = false WHERE clients_id = '{id}' ")
+        except psycopg2.Error as e:
+            print(e)
+            return False
+        return True
+
+    def transitionEmail(self, id):
+        try:
+            self.__cur.execute(f"UPDATE statements SET joinbyemail = true WHERE clients_id = '{id}' ")
+        except psycopg2.Error as e:
+            print(e)
+            return False
+        return True
+
+    def getClients(self):
+        try:
+            self.__cur.execute('select*from statements JOIN clients ON clients_id = id '
+                               'JOIN specialtys ON specialtys_id = specialtys.id WHERE statements.agreeemail = true')
             res = self.__cur.fetchall()
+            res = [dict(row) for row in res]
             if res:
                 return res
-
-        except sqlite3.Error as e:
-            print('Ошибка заполнения бд ' + str(e))
-            return False
-
+        except psycopg2.Error as e:
+            print(e)
         return []
 
-    def addUser(self, name, email, hpsw):
+    def getStats(self):
         try:
-            self.__cur.execute(f'select count() as "count" from users where email like "{email}" ')
+            self.__cur.execute('select*from stats JOIN users ON userj = users.id')
+            res = self.__cur.fetchall()
+            res = [dict(row) for row in res]
+            if res:
+                return res
+        except psycopg2.Error as e:
+            print(e)
+        return []
+
+    def addUser(self, name, email, hpsw, adm):
+        try:
+            self.__cur.execute(f"select * from users where email = '{email}' ")
             res = self.__cur.fetchone()
-            if res['count'] > 0:
+            if res:
                 print('Емайл занят')
                 return False
-
             tm = math.floor(time.time())
-            self.__cur.execute("insert into users values(NULL, ?,?,?,NULL, ?)",(name,email,hpsw, tm))
+            self.__cur.execute(f"insert into users (name, email, psw, time, admin) values('{name}','{email}','{hpsw}','{tm}', '{adm}')")
             self.__db.commit()
-        except sqlite3.Error as e:
-            print(f'Ошибка добавления {e}')
+        except:
+            print('Ошибка добавления')
             return False
-
         return True
 
     def getUser(self, user_id):
@@ -91,12 +102,43 @@ class FDataBase:
             if not res:
                 print('Пользователь не найден')
                 return False
-
             return res
+        except:
+            print('Ошибка получения данных')
+        return False
 
-        except sqlite3.Error as e:
-            print('Ошибка получения данных' + str(e))
+    def getPatern(self):
+        try:
+            self.__cur.execute('select*from patern')
+            res = self.__cur.fetchall()
+            if not res:
+                print('Шаблоны не найдены')
+                return False
+            return res
+        except:
+            print('Ошибка получения данных')
+        return False
 
+    def removePatern(self, id):
+        try:
+            self.__cur.execute(f'DELETE from patern where id = {id}')
+            self.__db.commit()
+        except:
+            print('Ошибка удаления')
+            return False
+        return True
+
+
+    def getUsers(self):
+        try:
+            self.__cur.execute('select*from users')
+            res = self.__cur.fetchall()
+            if not res:
+                print('Пользователи не найдены')
+                return False
+            return res
+        except:
+            print('Ошибка получения данных')
         return False
 
     def getUserByEmail(self, email):
@@ -108,20 +150,27 @@ class FDataBase:
                 return False
 
             return res
-        except sqlite3.Error as e:
-            print('Ошибка получения данных' + str(e))
+        except:
+            print('Ошибка получения данных')
 
         return False
 
-    def updateUserAvatar(self, avatar, user_id):
-        if not avatar:
-            return False
-
+    def addPatern(self, subject, preview, msg):
         try:
-            binary = sqlite3.Binary(avatar)
-            self.__cur.execute(f'UPDATE users SET avatar = ? where id = ?', (binary, user_id))
+            self.__cur.execute(f"insert into patern (title, preview, message) values('{subject}','{preview}','{msg}')")
             self.__db.commit()
-        except sqlite3.Error as e:
-            print('Ошибка изменения аватара')
+        except:
+            print('Ошибка добавления')
+            return False
+        return True
+
+    def addStats(self, user, subject, preview, msg, url, len):
+        try:
+            dateMail = datetime.now().date()
+            print(dateMail, user, subject, preview, msg, url)
+            self.__cur.execute(f"insert into stats (userj, titlej, previewj, messagej, datemailj, urlj, countj) values({int(user)},'{subject}','{preview}','{msg}','{dateMail}','{str(url)}',{len})")
+            self.__db.commit()
+        except  psycopg2.Error as e:
+            print(e)
             return False
         return True

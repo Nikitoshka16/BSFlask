@@ -1,0 +1,6 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block content %}
+{{super()}}
+    <p><a href="{{url_for('admin.register')}}">Добавить пользователя</a></p>
+{% endblock %}

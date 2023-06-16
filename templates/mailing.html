@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{{ super() }}
+{%for m in get_flashed_messages(True)%}
+<div>{{m}}</div>
+{%endfor%}
+<div style="width: 100%;">
+    <div style="float: left; width: 40%">
+        <form method="post">
+        <p><label>Имя</label><input type="text" name="name" value=""/></p>
+        <p><label>Фамилия</label><input type="text" name="surname" value=""></p>
+        <p><label>Регион</label><input type="text" name="region" value=""></p>
+        <p><label>Пол</label><input type="text" name="sex" value=""></p>
+        <p><label>Возраст</label><input type="text" name="fullage" value=""></p>
+        <p><label>Дата рождения</label><input type="text" name="dateofbirth" value=""></p>
+        <p><label>Факультет</label><input type="text" name="faculty" value=""></p>
+        <p><label>Специальность</label><input type="text" name="specialty" value=""></p>
+        <textarea name="text" rows="10" cols="40"></textarea>
+        <p><a href=# id=find><button>Найти</button></a></p>
+        <p><a href="{{url_for('logout')}}">Выйти</a></p>
+        </form>
+    </div>
+    <div style="float: right;">
+        <form action="/mail" method="POST">
+            <p><a href=# id=mail><button>Разослать</button></a></p>
+            <ul>
+                {%for c in clients%}
+            <li>
+                <p>{{c.name}} {{c.surname}}</p>
+            </li>
+                {%endfor%}
+        </ul>
+        </form>
+    </div>
+    <div style="clear:both"></div>
+</div>
+{% endblock %}

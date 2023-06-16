@@ -1,120 +1,48 @@
-# from  flask import Flask, render_template, url_for, request, flash, redirect, session, abort
-#
-# app = Flask(__name__)
-#
-# app.config['SECRET_KEY'] = 'aasdsaffhgsdfk'
-#
-# menu = [{"name": "Установка", "url": "install-flask"},
-#         {"name": "Запуск", "url": "first-app"},
-#         {"name": "Обратная связь", "url": "contact"}]
-#
-# @app.route('/')
-# @app.route("/index")
-# def index():
-#     print(url_for('index'))
-#     return render_template('index.html', menu = menu)
-#
-# @app.route("/about")
-# def about():
-#     return "<h2> O caite </h2>"
-#
-# @app.route("/contact",  methods = ['POST', 'GET'])
-# def contact():
-#     if request.method == "POST":
-#         if len(request.form['username']) > 2:
-#             flash('Success')
-#         else:
-#             flash('Error')
-#
-#     return render_template('contact.html',title = "Обратная связь", menu = menu)
-#
-# @app.errorhandler(404)
-# def pageNotFound(error):
-#     return render_template('page404.html', title = "Страница не найдена!", menu = menu), 404
-#
-# @app.route("/login", methods = ['POST','GET'])
-# def login():
-#     if 'userLogged' not in session:
-#         return redirect(url_for('profile', username = session['userLogged']))
-#     elif request.method == 'POST' and request.form['username'] == "nikita" and request.form['psw'] == "1":
-#         session['userLogged'] = request.form['username']
-#         return redirect(url_for('profile', username = session['userLogged']))
-#
-#     return render_template('login.html',title = 'Авторизация', menu = menu)
-#
-# @app.route('/profile/<username>')
-# def profile(username):
-#     if 'userLogged' not in session or session['userLogged'] != username:
-#         abort(401)
-#
-#     return f'Пользователь: {username}'
-#
-# # with app.test_request_context():
-# #     print(url_for('index'))
-# #     print(url_for("about", username = "gavno"))
-#
-# if __name__ == "__main__":
-#     app.run(debug=True)
+import math
+import time
+from email.mime.multipart import MIMEMultipart
 
-#############################################################################################################
-# #############################################################################################################
-#
-# from flask import Flask, session, url_for, request, render_template, make_response
-#
-# app = Flask(__name__)
-# app.config['SECRET_KEY'] = '3277a8384ee9862a31b8816a964ab1324ecc2fa3'
-#
-# @app.route('/')
-# def index():
-#     if 'visits' in session:
-#         session['visits'] = session.get('visits') + 1
-#     else:
-#         session['visits'] = 1
-#
-#     return f'<h1>Main page</h1><p>Число просмотров: {session["visits"]}'
-#
-# if __name__ == '__main__':
-#     app.run(debug=True)
+import psycopg2
+import psycopg2.extras
 
-
-##############################################################################################################
-############################################################################################################
-
-
-
-import os
-import sqlite3
-
-from flask import Flask, request, render_template, g, flash, abort, redirect, url_for
+from flask import Flask, request, render_template, g, redirect
 from FDataBase import FDataBase
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import LoginManager, login_user, login_required, current_user, logout_user
+from flask_login import LoginManager, login_user, login_required
 from UserLogin import UserLogin
+import smtplib
+from email.mime.text import MIMEText
+from flask_cors import cross_origin
 
 #Configuration
-DATABASE = 'tmp/flsite.db'
 DEBUG = True
 SECRET_KEY = 'adsfkaofkoadfkopadk'
 
+host = '127.0.0.1'
+user = 'postgres'
+psw = 'nastiuxa'
+db_name = 'flsite'
+
+email = 'nscirikitos@yandex.ru'
+password = 'kocmonavtovnet'
+
 app = Flask(__name__)
 app.config.from_object(__name__)
-app.config.update(dict(DATABASE=os.path.join(app.root_path, 'flsite.db')))
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Авторизуйтесь для просмотра страницы'
 
 def connect_db():
-    conn = sqlite3.connect(app.config['DATABASE'])
-    conn.row_factory = sqlite3.Row
-    return conn
+    try:
+        con = psycopg2.connect(host=host, user=user, password=psw, database=db_name)
+        cursor = con.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        con.autocommit = True
 
-def create_db():
-    db = connect_db()
-    with app.open_resource('sq_db.sql', mode='r') as f:
-        db.cursor().executescript(f.read())
-    db.commit()
-    db.close()
+    except Exception as _ex:
+        print(_ex)
+
+    return con
 
 def get_db():
     if not hasattr(g, 'link_db'):
@@ -122,108 +50,230 @@ def get_db():
     return g.link_db
 
 dbase = None
+
 @app.before_request
 def before_request():
     global dbase
     db = get_db()
     dbase = FDataBase(db)
 
-@login_manager.user_loader
-def load_user(user_id):
-    print("load_user")
-    return UserLogin().fromDB(user_id, dbase)
-
-@app.route('/profile')
-@login_required
-def profile():
-    return f"""<p><a href = "{url_for('logout')}">Выйти</a></p> 
-                <p>user info: {current_user.get_id()}"""
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('Вы вышли из аккаунта')
-    return redirect(url_for('login'))
-
-
-@app.route('/')
-@app.route('/index')
-def index():
-    return render_template('index.html', menu=dbase.getMenu(), posts = dbase.getPostsAnonce())
-
-@app.route('/login', methods = ['POST', 'GET'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('profile'))
-
-    if request.method == 'POST':
-        user = dbase.getUserByEmail(request.form['email'])
-        if user and check_password_hash(user['psw'], request.form['psw']):
-            userLogin = UserLogin().create(user)
-            rm = True if request.form.get('remainme') else False
-            login_user(userLogin, remember= rm)
-            return redirect(request.args.get('next') or url_for('profile'))
-
-        flash('Неверный логин или пароль')
-
-    return render_template('login.html', menu = dbase.getMenu(), title = 'Авторизация')
-
-@app.route('/register', methods = ['POST', 'GET'])
-def register():
-    if request.method == 'POST':
-        if len(request.form['name']) > 1 and len(request.form['psw']) > 1 \
-                and request.form['psw'] == request.form['psw2']:
-            hash = generate_password_hash(request.form['psw'])
-            res = dbase.addUser(request.form['name'], request.form['email'], hash)
-            if res:
-                flash('Успех')
-                return redirect(url_for('login'))
-            else:
-                flash('Ошибка')
-        else:
-            flash('Неверно заполнены поля')
-
-    return render_template('register.html', menu = dbase.getMenu(), title = 'Регистрация')
-
 @app.teardown_appcontext
 def close_db(error):
     if hasattr(g, 'link_db'):
         g.link_db.close()
 
-@app.route("/add_post", methods = ['POST','GET'])
-def add_post():
+@login_manager.user_loader
+def load_user(user_id):
+    return UserLogin().fromDB(user_id, dbase)
+
+
+@app.route('/login', methods = ['POST', 'GET'])
+@cross_origin()
+def login():
     if request.method == 'POST':
-        if len(request.form['name']) > 1 and len(request.form['post']) > 1:
-            res = dbase.addPost(request.form['name'], request.form['post'], request.form['url'])
-            if not res:
-                flash('Ошибка заполнения ')
-            else:
-                flash('Успех')
+        data = request.get_json()
+        print(data)
+        user = dbase.getUserByEmail(data['login'])
+        print(user)
+        if user and check_password_hash(user['psw'], data['password']):
 
+            if user['blocked'] == False:
+
+                userLogin = UserLogin().create(user)
+                rm = True if request.form.get('remainme') else False
+                login_user(userLogin, remember=rm)
+                return user
+
+            return 'users is blocked'
+
+        return 'incorrect'
+
+    else:
+        return redirect('http://localhost:8081')
+
+@app.route('/message/<tm>/<number>')
+def allow(number, tm):
+    dbase.transitionClient(tm)
+    dbase.transitionEmail(number)
+    return redirect('https://orenbs.info')
+
+@app.route('/rejection/<tm>/<number>')
+def rejection(number, tm):
+    dbase.rejectionClient(tm)
+    dbase.rejectionEmail(number)
+    return redirect('https://orenbs.info')
+
+def timeS():
+    return math.floor(time.time())
+
+
+@app.route('/mail', methods = ['POST', 'GET'])
+@cross_origin()
+def mail():
+    if request.method == 'POST':
+
+        data = request.get_json()
+        clients = data['clients']
+        server = smtplib.SMTP('smtp.yandex.ru', 587)
+        server.ehlo()
+        server.starttls()
+        server.login(email, password)
+        tm = timeS()
+
+        for c in clients:
+            dest_email = c['email']
+            m = c['name']
+            r = data['msg']
+            msg = MIMEMultipart('alternative')
+
+            a = c['id']
+
+            href = f'http://127.0.0.1:5000/message/{tm}/{a}'
+            href2 = f'http://127.0.0.1:5000/rejection/{tm}/{a}'
+            preview = data['preview']
+
+            html = """<html>
+                     <head></head>
+                     <body>
+                     <div style="display:none;font-size:1px;color:#333333;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+                        {preview}
+                     </div>
+                     <div style="display: none; max-height: 0px; overflow: hidden;">&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>
+                     <div>
+                        <p>Доброго времени суток, {m}!<br>
+                          {r}<br>
+                       </p>
+                       <p>
+                            Если заинтересовало перейдите по ссылке - <a href="{href}">предложение</a><br>
+                            Чтобы отказаться от рассылки - <a href="{href2}">отказ</a>
+                       </p>
+                     </div>
+                     </body>
+                   </html>
+                   """.format(href=href, m = m, r=r, href2 = href2, preview = preview)
+            part2 = MIMEText(html, 'html')
+            msg['Subject'] = data['subject']
+            msg.attach(part2)
+            server.sendmail(email, dest_email, msg.as_string())
+            time.sleep(5)
+        server.quit()
+        dbase.addStats(data['userId'], data['subject'], data['preview'], data['msg'], tm, len(clients))
+
+        return 'Success'
+    else:
+        return redirect('http://localhost:8081')
+
+@app.route('/users', methods = ['POST', 'GET'])
+@cross_origin()
+def users():
+    users = dbase.getUsers()
+    return users
+
+@app.route('/savepatern', methods = ['POST', 'GET'])
+@cross_origin()
+def savepatern():
+    data = request.get_json()
+
+    if request.method == 'POST':
+        res = dbase.addPatern(data['subject'], data['preview'], data['msg'])
+        if res:
+            return 'success'
         else:
-            flash('Ошибка заполнения бд')
+            return 'error'
 
-    return  render_template('add_post.html', menu=dbase.getMenu(), title = "Добавление статьи")
+    else:
+        return redirect('http://localhost:8081')
 
-@app.route('/post/<alias>')
+@app.route('/getpatern', methods = ['POST', 'GET'])
+@cross_origin()
+def getpatern():
+    paterns = dbase.getPatern()
+    return paterns
+
+@app.route('/stats', methods = ['POST', 'GET'])
+@cross_origin()
+def stats():
+    stats = dbase.getStats()
+    return stats
+
+@app.route('/block', methods =['POST', 'GET'])
+@cross_origin()
+def block():
+    data = request.get_json()
+    data = data['user']
+    data = data[0]
+
+    res = dbase.blockUser(data['email'])
+    if res:
+        return 'success'
+    else:
+        return 'error'
+
+@app.route('/unblock', methods =['POST', 'GET'])
+@cross_origin()
+def unblock():
+    data = request.get_json()
+    data = data['user']
+    data = data[0]
+
+    res = dbase.unblockUser(data['email'])
+    if res:
+        return 'success'
+    else:
+        return 'error'
+
+@app.route('/clients', methods = ['POST', 'GET'])
+@cross_origin()
+def clients():
+    clients = dbase.getClients()
+    return clients
+
+@app.route('/removepatern', methods = ['POST', 'GET'])
+@cross_origin()
+def removepatern():
+    data = request.get_json()
+    if request.method == 'POST':
+        res = dbase.removePatern(data['patern_id'])
+        if res:
+            return 'success'
+        else:
+            return 'error'
+    else:
+        return redirect('http://localhost:8081')
+
+@app.route('/register', methods = ['POST', 'GET'])
+@cross_origin()
+def register():
+    data = request.get_json()
+
+    if request.method == 'POST':
+        if len(data['nameUser']) > 1 and len(data['psw1']) > 1 \
+                and data['psw1'] == data['psw2']:
+            hash = generate_password_hash(data['psw1'])
+            res = dbase.addUser(data['nameUser'], data['email'], hash, data['admin'])
+            if res:
+                return 'success'
+            else:
+                return 'error'
+        else:
+            return 'incorrect'
+
+    else:
+        return redirect('http://localhost:8081')
+
+@app.errorhandler(400)
+def handle_bad_request(e):
+    return redirect('http://localhost:8081')
+
+@app.route('/mailing/<role>/<id>', methods = ['POST', 'GET'])
 @login_required
-def showPost(alias):
-    title, post = dbase.getPost(alias)
-    if not title:
-        abort(404)
+def mailing(id,role):
+    return render_template('mailing.html', menu =dbase.getMenu())
 
-    return render_template('post.html', menu = dbase.getMenu(), title = title, post = post)
-
+@app.route('/admin/<role>/<id>', methods = ['POST', 'GET'])
+@cross_origin()
+def admin(id,role):
+    return redirect('http://localhost:8081')
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
-
-
-
-        
-
