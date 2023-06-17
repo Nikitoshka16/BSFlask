@@ -68,7 +68,7 @@ def load_user(user_id):
 
 @app.route('/', methods = ['POST','GET'])
 def index ():
-    return redirect('http://45.12.236.247:50')
+    return redirect('http://45.12.236.247:8080')
 
 @app.route('/login', methods = ['POST', 'GET'])
 @cross_origin()
@@ -92,7 +92,7 @@ def login():
         return 'incorrect'
 
     else:
-        return redirect('http://45.12.236.247:50')
+        return redirect('http://45.12.236.247:8080')
 
 @app.route('/message/<tm>/<number>')
 def allow(number, tm):
@@ -164,7 +164,7 @@ def mail():
 
         return 'Success'
     else:
-        return redirect('http://45.12.236.247:50')
+        return redirect('http://45.12.236.247:8080')
 
 @app.route('/users', methods = ['POST', 'GET'])
 @cross_origin()
@@ -185,7 +185,7 @@ def savepatern():
             return 'error'
 
     else:
-        return redirect('http://45.12.236.247:50')
+        return redirect('http://45.12.236.247:8080')
 
 @app.route('/getpatern', methods = ['POST', 'GET'])
 @cross_origin()
@@ -242,7 +242,7 @@ def removepatern():
         else:
             return 'error'
     else:
-        return redirect('http://45.12.236.247:50')
+        return redirect('http://45.12.236.247:8080')
 
 @app.route('/register', methods = ['POST', 'GET'])
 @cross_origin()
@@ -262,11 +262,11 @@ def register():
             return 'incorrect'
 
     else:
-        return redirect('http://45.12.236.247:50')
+        return redirect('http://45.12.236.247:8080')
 
 @app.errorhandler(400)
 def handle_bad_request(e):
-    return redirect('http://45.12.236.247:50')
+    return redirect('http://45.12.236.247:8080')
 
 @app.route('/mailing/<role>/<id>', methods = ['POST', 'GET'])
 @login_required
@@ -276,7 +276,7 @@ def mailing(id,role):
 @app.route('/admin/<role>/<id>', methods = ['POST', 'GET'])
 @cross_origin()
 def admin(id,role):
-    return redirect('http://45.12.236.247:50')
+    return redirect('http://45.12.236.247:8080')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0' , port=50)
