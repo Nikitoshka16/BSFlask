@@ -18,10 +18,10 @@ from flask_cors import cross_origin
 DEBUG = True
 SECRET_KEY = 'adsfkaofkoadfkopadk'
 
-host = '127.0.0.1'
+host = 'toobukouco.beget.app'
 user = 'postgres'
-psw = 'nastiuxa'
-db_name = 'flsite'
+psw = '9zb*N18g'
+db_name = 'bsdb'
 
 email = 'nscirikitos@yandex.ru'
 password = 'kocmonavtovnet'
