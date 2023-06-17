@@ -276,4 +276,4 @@ def admin(id,role):
     return redirect('http://localhost:8081')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=80)
