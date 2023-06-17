@@ -66,6 +66,9 @@ def close_db(error):
 def load_user(user_id):
     return UserLogin().fromDB(user_id, dbase)
 
+@app.route('/indexxx', methods = ['POST','GET'])
+def index ():
+    return "hello Marat"
 
 @app.route('/login', methods = ['POST', 'GET'])
 @cross_origin()
