@@ -68,7 +68,7 @@ def load_user(user_id):
 
 @app.route('/indexxx', methods = ['POST','GET'])
 def index ():
-    return "hello Marat"
+    return "hello Ilnar"
 
 @app.route('/login', methods = ['POST', 'GET'])
 @cross_origin()
@@ -279,4 +279,4 @@ def admin(id,role):
     return redirect('http://localhost:8081')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=80)
+    app.run(debug=True, host='0.0.0.0' , port=80)
